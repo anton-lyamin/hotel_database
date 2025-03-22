@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS advertisement;
 DROP TABLE IF EXISTS employee;
 DROP TABLE IF EXISTS paymentInvoice;
 DROP TABLE IF EXISTS paymentInformation;
