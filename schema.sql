@@ -74,8 +74,8 @@ CREATE TABLE Guest
 	countryCode    CHAR(3) NOT NULL,
 	phoneNumber    VARCHAR(20) NOT NULL,
 	email          VARCHAR(100) NOT NULL,
-	gender         VARCHAR(10) NOT NULL,
-	dob            DATE NOT NULL,
+	gender         VARCHAR(10) NULL,
+	dob            DATE NULL,
 	UNIQUE (email),
 	UNIQUE (phoneNumber),
 	CONSTRAINT FK_Guest_Country FOREIGN KEY (countryCode)
