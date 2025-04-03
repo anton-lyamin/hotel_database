@@ -1,32 +1,22 @@
-/*
-Make a reservation.
-Ensure that a reservation does not exceed available capacity at a hotel at any given time.
-If there aren’t sufficient capacity available for the reservation an error is raised with an
-appropriate error message and the entire reservation is cancelled.
-Appropriate bookings of facilities for the specified period needs to be saved in the
-database at the time of saving a valid reservation. The total amount due and deposit due
-needs to be calculated for the reservation. The deposit amount due is 25% of total amount
-due.
-
-INPUT PARAMETERS:
-ustomer details – Details of customer making the reservation
- customer name – name of customer
- address – address of customer
- phone number – phone number of customer
- email – email of the customer
- List of services/packages reserved – A table valued parameter with each row consisting
-of service or package id, quantity, start date and end date of each service/package.
- Guest list – A list of guests if provided (name, address, contact number and email)
-
-Output parameter:
-Reservation id – id of the created reservation
-
-*/
+DROP PROCEDURE IF EXISTS usp_GetErrorInfo;
 DROP PROCEDURE IF EXISTS usp_makeReservation;
 DROP TYPE IF EXISTS GuestList;
 DROP TYPE IF EXISTS ReservedAdvertisedPackageList;
 go
 
+/*
+Functionality
+----------------
+Ensure that a reservation does not exceed available capacity at a hotel at any given time.
+If there aren’t sufficient capacity available for the reservation an error is raised with an 
+appropriate error message and the entire reservation is cancelled.
+
+Appropriate bookings of facilities for the specified period needs to be saved in the database at the time of saving a valid reservation. 
+The total amount due and deposit due needs to be calculated for the reservation. 
+The deposit amount due is 25% of total amount due.
+*/
+
+-- Table-Valued parameter for list of services/packages reserved (input parameter)
 CREATE TYPE ReservedAdvertisedPackageList as TABLE(
 	packageId INT,
 	quantity INT,
@@ -35,36 +25,38 @@ CREATE TYPE ReservedAdvertisedPackageList as TABLE(
 );
 go
 
+-- Table-Valued parameter for Guest list if provided (input parameter)
 CREATE TYPE GuestList as TABLE (
 	name CHAR(255),
 	buildingNumber INT,
 	street	CHAR(255),
 	city	CHAR(255),
-	postcode	INT,
+	postcode INT,
 	state	CHAR(255),
 	countryCode CHAR(255),
-	phoneNo	INT,
+	phoneNo	VARCHAR(255),
 	email	CHAR(255)
 );
 go
 
+--creating stored procedure usp_makeReservation
 CREATE PROCEDURE usp_makeReservation
+	--Input parameters: Guest details of guest making reservation, list of services/packages, and guest list
 	@name CHAR(255),
 	@buildingNumber INT,
 	@street	CHAR(255),
-	@city	CHAR(255),
-	@postcode	INT,
+	@city CHAR(255),
+	@postcode INT,
 	@state	CHAR(255),
 	@countryCode CHAR(255),
-	@phoneNo	INT,
-	@email	CHAR(255),
+	@phoneNo INT,
+	@email CHAR(255),
 	@servicePackageList ReservedAdvertisedPackageList READONLY,
 	@guestList GuestList READONLY,
+	--Output parameter: Reservation number of the new reservation
 	@reservationID INT OUT
-
 AS
 BEGIN
-
 /*
 tables required to make a reservation: 
 	existing guest
@@ -162,4 +154,15 @@ tables required to make a reservation:
 	--TO DO: discuss with team on how to implement capacity and finish booking.
 
 END
+go
+
+CREATE PROCEDURE usp_GetErrorInfo
+AS
+SELECT
+	ERROR_NUMBER() AS ErrorNumber,
+	ERROR_SEVERITY() AS ErrorSeverity,
+	ERROR_STATE() AS ErrorState,
+	ERROR_PROCEDURE() AS ErrorProcedure,
+	ERROR_LINE() AS ErrorLine,
+	ERROR_MESSAGE() AS ErrorMessage;
 go
