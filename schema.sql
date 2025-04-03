@@ -389,3 +389,74 @@ CREATE TABLE ReservationGuest
 		ON DELETE NO ACTION
 );
 GO
+
+CREATE TRIGGER derive_service_currency
+ON HotelService
+INSTEAD OF INSERT
+AS
+BEGIN
+    INSERT INTO HotelService (hotelId, serviceId, startTime, endTime, capacity, baseCost, baseCurrency)
+    SELECT 
+        i.hotelId,
+        i.serviceId,
+        i.startTime,
+		i.endTime,
+		i.capacity,
+		i.baseCost,
+		c.currency AS baseCurrency
+    FROM inserted i
+		LEFT JOIN Hotel h on i.hotelId = h.hotelId
+    	LEFT JOIN Country c ON h.countryCode = c.countryCode
+END;
+GO
+
+CREATE TRIGGER enforce_same_country
+ON HotelAdvertisement
+INSTEAD OF INSERT
+AS
+BEGIN
+    IF EXISTS (
+        SELECT i.advertisementId
+        FROM inserted i
+        INNER JOIN hotel h ON i.hotelId = h.hotelId
+        GROUP BY i.advertisementId
+        HAVING COUNT(DISTINCT h.countryCode) > 1
+    )
+    BEGIN
+        RAISERROR ('All hotels associated with an advertisement must be in the same country.', 16, 1)
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION
+        RETURN
+    END
+
+    INSERT INTO HotelAdvertisement (hotelId, advertisementId)
+    SELECT hotelId, advertisementId
+    FROM inserted
+END;
+GO
+
+
+CREATE TRIGGER derive_advertisement_currency
+ON HotelAdvertisement
+AFTER INSERT
+AS
+BEGIN
+	WITH AdCountries AS (
+		SELECT 
+			ha.advertisementId,
+			COUNT(DISTINCT h.countryCode) AS countryCount,
+			MAX(h.countryCode) AS countryCode
+		FROM HotelAdvertisement ha
+		INNER JOIN hotel h ON ha.hotelId = h.hotelId
+		INNER JOIN inserted i ON ha.advertisementId = i.advertisementId
+		GROUP BY ha.advertisementId
+	)
+
+	UPDATE a
+	SET a.advertisedCurrency = c.currency
+	FROM advertisement a
+	INNER JOIN AdCountries ac ON a.advertisementId = ac.advertisementId
+        INNER JOIN Country c ON ac.countryCode = c.countryCode
+	WHERE ac.countryCount = 1
+END;
+GO
