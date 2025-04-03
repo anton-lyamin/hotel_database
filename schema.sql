@@ -33,7 +33,7 @@ GO
 
 CREATE TABLE FacilityType
 (
-	facilityTypeId INT PRIMARY KEY,
+	facilityTypeId INT IDENTITY(1,1) PRIMARY KEY,
 	name           VARCHAR(100) NOT NULL,
 	description    VARCHAR(255) NOT NULL,
 	UNIQUE (name)
@@ -52,7 +52,7 @@ GO
 
 CREATE TABLE Package
 (
-	packageId      INT PRIMARY KEY,
+	packageId      INT IDENTITY(1,1) PRIMARY KEY,
 	name           VARCHAR(100) NOT NULL,
 	description    VARCHAR(255) NOT NULL,
 	inclusions     VARCHAR(255) NULL,
@@ -64,7 +64,7 @@ GO
 
 CREATE TABLE Guest
 (
-	guestId        INT PRIMARY KEY,
+	guestId        INT IDENTITY(1,1) PRIMARY KEY,
 	name           VARCHAR(100) NOT NULL,
 	buildingNumber VARCHAR(10) NOT NULL,
 	street         VARCHAR(100) NOT NULL,
@@ -96,7 +96,7 @@ GO
 
 CREATE TABLE Hotel
 (
-	hotelId        INT PRIMARY KEY,
+	hotelId        INT IDENTITY(1,1) PRIMARY KEY,
 	name           VARCHAR(100) NOT NULL,
 	buildingNumber VARCHAR(10) NOT NULL,
 	street         VARCHAR(100) NOT NULL,
@@ -116,7 +116,7 @@ GO
 
 CREATE TABLE Employee
 (
-	employeeId     INT PRIMARY KEY,
+	employeeId     INT IDENTITY(1,1) PRIMARY KEY,
 	name           VARCHAR(100) NOT NULL,
 	buildingNumber VARCHAR(10) NOT NULL,
 	street         VARCHAR(100) NOT NULL,
@@ -144,7 +144,7 @@ GO
 
 CREATE TABLE Advertisement
 (
-	advertisementId     INT PRIMARY KEY,
+	advertisementId     INT IDENTITY(1,1) PRIMARY KEY,
 	startDate           DATE NOT NULL,
 	endDate             DATE NOT NULL,
 	advertisedPrice     DECIMAL(10,2) NOT NULL,
@@ -165,7 +165,7 @@ GO
 
 CREATE TABLE Reservation
 (
-	reservationNumber   	INT PRIMARY KEY,
+	reservationNumber   	INT IDENTITY(1,1) PRIMARY KEY,
 	guestId             	INT NOT NULL,
 	grantingEmployeeId      INT NULL,
 	authorisingEmployeeId   INT NULL,
@@ -184,7 +184,7 @@ GO
 
 CREATE TABLE PaymentInformation
 (
-	paymentInfoId 	INT PRIMARY KEY,
+	paymentInfoId 	INT IDENTITY(1,1) PRIMARY KEY,
 	vendorToken 	VARCHAR(255) NOT NULL,
 	guestId 		INT NOT NULL,
 	UNIQUE (vendorToken),
@@ -196,12 +196,13 @@ GO
 
 CREATE TABLE Booking
 (
-	bookingId 			INT PRIMARY KEY,
+	bookingId 			INT IDENTITY(1,1) PRIMARY KEY,
 	reservationNumber 	INT NOT NULL,
 	advertisementId 	INT NOT NULL,
 	quantity 			INT NOT NULL,
 	startDate 			DATE NOT NULL,
 	endDate 			DATE NOT NULL,
+	isInitialBooking	BIT NOT NULL, -- indicates wether a booking is part of reservation
 	UNIQUE (reservationNumber, advertisementId, startDate, endDate),
 	CONSTRAINT FK_Booking_Reservation FOREIGN KEY (reservationNumber)
 		REFERENCES Reservation(reservationNumber)
@@ -214,7 +215,7 @@ GO
 
 CREATE TABLE PaymentInvoice
 (
-	invoiceNumber 		INT PRIMARY KEY,
+	invoiceNumber 		INT IDENTITY(1,1) PRIMARY KEY,
 	amount 				DECIMAL(10,2),
 	date 				DATE NOT NULL,
 	status 				VARCHAR(25) NOT NULL,
@@ -235,7 +236,7 @@ GO
 
 CREATE TABLE ServiceItem
 (
-	serviceId 		INT PRIMARY KEY,
+	serviceId 		INT IDENTITY(1,1) PRIMARY KEY,
 	name 			VARCHAR(100) NOT NULL,
 	description 	VARCHAR(255) NOT NULL,
 	restrictions 	VARCHAR(255) NULL,
@@ -250,7 +251,7 @@ GO
 
 CREATE TABLE Facility
 (
-	facilityId 		INT PRIMARY KEY,
+	facilityId 		INT IDENTITY(1,1) PRIMARY KEY,
 	name 			VARCHAR(100) NOT NULL,
 	description 	VARCHAR(255) NOT NULL,
 	status 			VARCHAR(25) NOT NULL,
@@ -275,7 +276,7 @@ CREATE TABLE HotelService
 	endTime 		TIME(0) NOT NULL,
 	capacity 		INT NULL,
 	baseCost 		DECIMAL(10,2) NOT NULL,
-	baseCurreny 	CHAR(3) NOT NULL, /* derived attribute */
+	baseCurrency 	CHAR(3) NOT NULL, /* derived attribute */
 	PRIMARY KEY (hotelId, serviceId, startTime),
 	UNIQUE (hotelId, serviceId, endTime),
 	CONSTRAINT FK_HotelService_Hotel FOREIGN KEY (hotelId)
@@ -305,7 +306,7 @@ CREATE TABLE PackageItem
 (
 	packageId 	INT NOT NULL,
 	serviceId 	INT NOT NULL,
-	quantity	INT,
+	quantity	INT NOT NULL, -- i.e. how many days of a stay or number of massages
 	PRIMARY KEY (packageId, serviceId),
 	CONSTRAINT FK_PackageItem_Package FOREIGN KEY (packageId)
 		REFERENCES Package(packageId)
@@ -346,7 +347,7 @@ GO
 
 CREATE TABLE FacilityBooking
 (
-	facilityBookingId 	INT PRIMARY KEY,
+	facilityBookingId 	INT IDENTITY(1,1) PRIMARY KEY,
 	bookingId 			INT NOT NULL,
 	facilityId 			INT NOT NULL,
 	startDateTime 		DATETIME NOT NULL,
@@ -481,7 +482,7 @@ VALUES
 (1, 'Spa Treatment', 'A full body massage for relaxation', 'Age 18+', 'Use of essential oils', 'Active', 'HRS'),
 (2, 'Gym Access', 'Access to the hotel gym', NULL, 'Available 24/7', 'Active', 'RCP'),
 (3, 'Yoga Session', 'A group yoga class for relaxation and flexibility', 'Age 16+', 'Held every morning', 'Active', 'HRS'),
-(4, 'Room Service', 'Food and drink served directly to the guest’s room', 'Available 24/7', 'Menu includes snacks, meals, and beverages', 'Active', 'FTS'),
+(4, 'Room Service', 'Food and drink served directly to the guestï¿½s room', 'Available 24/7', 'Menu includes snacks, meals, and beverages', 'Active', 'FTS'),
 (5, 'Guided City Tour', 'A tour of the city with a local guide', 'Minimum 2 guests', 'Tours available daily', 'Active', 'RCP'),
 (6, 'Diving Lesson', 'Introductory diving lesson for beginners', 'Age 18+; health waiver required', 'Equipment provided', 'Active', 'HRS'),
 (7, 'Airport Transfer', 'Private shuttle service from the airport to the hotel', 'Requires advance booking', 'Available for all guests', 'Active', 'RCP'),
@@ -544,3 +545,4 @@ INSERT INTO ReservationGuest (reservationNumber, guestId)
 VALUES 
 (1001, 1),
 (1002, 2);
+GO
