@@ -1,12 +1,22 @@
+/*
+	Create Package
+
+	This procedure creates a package, associates it with service items and creates an advertisement for said package. 
+
+	Assumptions and constraints:
+	-	The package and advertisement are not associated with a hotel because this is not part of
+		the procedure specification
+*/
+
 DROP PROCEDURE IF EXISTS usp_GetErrorInfo;
 DROP PROCEDURE IF EXISTS usp_createPackage;
 DROP TYPE IF EXISTS ServiceItemList;
 
 CREATE TYPE ServiceItemList AS TABLE(
-serviceItemId INT,
-quantity INT
-);
-go
+	serviceItemId INT,
+	quantity INT
+)
+GO
 
 CREATE PROCEDURE usp_createPackage 
 	@packageName CHAR(255),
@@ -20,26 +30,28 @@ CREATE PROCEDURE usp_createPackage
 	@packageId INT OUTPUT
 AS
 BEGIN
-
-	DECLARE @defaultPackageStatus CHAR(255) = 'Available';
-	DECLARE @defaultGracePeriod INT = 30;
+	BEGIN TRANSACTION
+	DECLARE @defaultPackageStatus CHAR(255) = 'Available'
+	DECLARE @defaultGracePeriod INT = 30
 
 	--Insert into package package name, description and get packageId
-	SELECT @packageId = ISNULL((SELECT MAX(packageId)+1 FROM Package),1);
-	INSERT INTO Package (packageId,name,description,status)
+
+	INSERT INTO Package (name,description,status)
 	VALUES (
-		@packageId,
 		@packageName,
 		@description,
-		@defaultPackageStatus); 
+		@defaultPackageStatus) 
+
+	SELECT @packageId = packageId FROM Package WHERE name = @packageName
+
 	--serviceItemList goes on the packageItem. For each service item on the list
 	INSERT INTO PackageItem(serviceId, packageId, quantity)
 	SELECT serviceItemId, @packageId, quantity
-	FROM @serviceItemList;
+	FROM @serviceItemList
+
 	--Insert packageId, price, currency, employeeId, startDate, and EndDate into advertisement
-	INSERT INTO Advertisement (advertisementId, packageId, advertisedPrice, advertisedCurrency, employeeId, startDate, endDate, gracePeriod)
+	INSERT INTO Advertisement (packageId, advertisedPrice, advertisedCurrency, employeeId, startDate, endDate, gracePeriod)
 	VALUES (
-		ISNULL((SELECT MAX(advertisementId)+1 FROM Advertisement),1),
 		@packageId, 
 		@price,
 		@currency,
@@ -47,9 +59,10 @@ BEGIN
 		@startDate,
 		@endDate,
 		@defaultGracePeriod
-	);
+	)
+	COMMIT TRANSACTION
 END
-go
+GO
 
 CREATE PROCEDURE usp_GetErrorInfo
 AS

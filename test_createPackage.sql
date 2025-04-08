@@ -1,40 +1,51 @@
+/*
+	* Create Package Tests
+*/
+
 DECLARE @serviceItemList ServiceItemList
 DECLARE @packageId INT
-DECLARE @packageName CHAR(255) = 'test package'
+DECLARE @hotelName VARCHAR(100) = 'Grand Ocean Hotel'
+DECLARE @packageName VARCHAR(100) = 'Couples Massage'
 
-DELETE FROM Advertisement WHERE packageId =
-	(SELECT packageId FROM Package WHERE name = @packageName);
+DECLARE @employeeId INT 
+SELECT @employeeId = employeeId
+FROM Employee WHERE phoneNumber = '0299001006'
 
-DELETE FROM PackageItem WHERE packageId =
-	(SELECT packageId FROM Package WHERE name = @packageName);
+DECLARE @ServiceMapping TABLE (
+	name VARCHAR(100),
+	quantity INT
+)
 
-DELETE FROM Package WHERE name = @packageName;
+INSERT INTO @ServiceMapping (name, quantity)
+VALUES
+	('massage', 2)
+
+INSERT INTO @ServiceItemList(serviceItemId, quantity)
+SELECT s.serviceId, m.quantity
+FROM @ServiceMapping m
+INNER JOIN ServiceItem s ON s.name = m.name
 
 
-INSERT INTO @serviceItemList (serviceItemId, quantity)
-VALUES 
-	(1,1),
-	(2,1),
-	(3,1),
-	(4,1);
-
+-- create massage package
 BEGIN TRY
 	EXECUTE usp_createPackage
 	@packageName, 
 	@serviceItemList,
-	'this is a description',
-	'2025-03-22',
-	'2025-03-22',
-	1.00,
-	'AUD',
-	1,
+	'An hour long massage for two',
+	'2024-12-1',
+	'2025-6-1',
+	150.00,
+	'---',
+	@employeeId,
 	@packageId OUT
 END TRY
 BEGIN CATCH
 	EXECUTE usp_GetErrorInfo
-END CATCH;
+END CATCH
 
 PRINT 'The package id is:'+str(@packageId)
 
-SELECT * from Package
-WHERE packageId = @packageId;
+SELECT * 
+FROM Package p
+INNER JOIN advertisement a ON p.packageId = a.packageId
+WHERE p.packageId = @packageId
