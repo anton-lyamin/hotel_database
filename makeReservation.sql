@@ -1,165 +1,256 @@
 /*
-Make a reservation.
-Ensure that a reservation does not exceed available capacity at a hotel at any given time.
-If there aren’t sufficient capacity available for the reservation an error is raised with an
-appropriate error message and the entire reservation is cancelled.
-Appropriate bookings of facilities for the specified period needs to be saved in the
-database at the time of saving a valid reservation. The total amount due and deposit due
-needs to be calculated for the reservation. The deposit amount due is 25% of total amount
-due.
+    * Make Reservation
 
-INPUT PARAMETERS:
-ustomer details – Details of customer making the reservation
- customer name – name of customer
- address – address of customer
- phone number – phone number of customer
- email – email of the customer
- List of services/packages reserved – A table valued parameter with each row consisting
-of service or package id, quantity, start date and end date of each service/package.
- Guest list – A list of guests if provided (name, address, contact number and email)
+    This stored procedure creates a reservation, accompanying bookings and facility bookings 
+    associated with the packages selected.
 
-Output parameter:
-Reservation id – id of the created reservation
+    The functionality follows the below trail of logic:
+    -- 1. check if guest exists based on customer details
+    -- 2. if they dont exist make a new guest
+    -- 3. for each package
+        -- 3.1. find the active advertisement to use in each booking
+        -- 3.2. for each service
+            -- 3.2.1. if service has facilities
+                -- check capacity of facility 
+                    -- if capacity is 0, throw error
+                    -- if capcity exists continue
+                -- create facility booking data
+            -- 3.2.2. create booking data
+        -- 3.3. create reservation 
 
+    Constraints and Assumptions:
+    -   A user making a reservation should exist in the database as a guest before 
+        they can make a booking.
+    -   A guest must be associated with payment information before they can 
+        make a booking.
+    -   Facility Bookings are made with the booking start date and end date. 
+        Specific start and end times are not asked for in the specification for this
+        procedure. This means a massage is booked in for a whole date rather than a 
+        particular date and time. 
+    -   Guests are not associated with facility bookings because this input is
+        not asked for in the specification for this procedure. 
 */
-DROP PROCEDURE IF EXISTS usp_makeReservation;
-DROP TYPE IF EXISTS GuestList;
-DROP TYPE IF EXISTS ReservedAdvertisedPackageList;
-go
 
-CREATE TYPE ReservedAdvertisedPackageList as TABLE(
-	packageId INT,
-	quantity INT,
-	startDate DATE,
-	endDate DATE
-);
-go
+DROP PROCEDURE IF EXISTS usp_makeReservation; 
+DROP TYPE IF EXISTS PackageReservationType;
+DROP TYPE IF EXISTS GuestListType;
 
-CREATE TYPE GuestList as TABLE (
-	name CHAR(255),
-	buildingNumber INT,
-	street	CHAR(255),
-	city	CHAR(255),
-	postcode	INT,
-	state	CHAR(255),
-	countryCode CHAR(255),
-	phoneNo	INT,
-	email	CHAR(255)
+
+CREATE TYPE PackageReservationType AS TABLE (
+    packageName VARCHAR(100),
+    quantity INT,
+    startDate DATE,
+    endDate DATE
 );
-go
+GO
+
+CREATE TYPE GuestListType AS TABLE (
+    name VARCHAR(100),
+    buildingNumber VARCHAR(10),
+    street VARCHAR(100),
+    city VARCHAR(100),
+    postcode VARCHAR(10),
+    state VARCHAR(50),
+    countryCode CHAR(3),
+    phoneNumber VARCHAR(20),
+    email VARCHAR(100),
+    gender VARCHAR(10),
+    dob DATE
+);
+GO
 
 CREATE PROCEDURE usp_makeReservation
-	@name CHAR(255),
-	@buildingNumber INT,
-	@street	CHAR(255),
-	@city	CHAR(255),
-	@postcode	INT,
-	@state	CHAR(255),
-	@countryCode CHAR(255),
-	@phoneNo	INT,
-	@email	CHAR(255),
-	@servicePackageList ReservedAdvertisedPackageList READONLY,
-	@guestList GuestList READONLY,
-	@reservationID INT OUT
+  @CustomerName VARCHAR(100),
+  @CustomerBuildingNumber VARCHAR(10),
+  @CustomerStreet VARCHAR(100),
+  @CustomerCity VARCHAR(100),
+  @CustomerPostcode VARCHAR(10),
+  @CustomerState VARCHAR(50),
+  @CustomerCountryCode CHAR(3),
+  @CustomerPhone VARCHAR(20),
+  @CustomerEmail VARCHAR(100),
+  @CustomerGender VARCHAR(10),
+  @CustomerDOB DATE,
+  @HotelName VARCHAR(100),
+  @ReservationNumber INT OUTPUT,
+  @PackageReservations PackageReservationType READONLY,
+  @GuestList GuestListType READONLY
 
 AS
 BEGIN
+    SET NOCOUNT ON
 
-/*
-tables required to make a reservation: 
-	existing guest
-		declare variable guestId and assign result of the following select
-			select guestId from Guest WHERE @phoneNumnber 
-	new guest if variable guestId  is = null
-		Insert into guest
-			guestId from ISNULL and SELECTING MAX +1, 
-			name @cname        
-			buildingNumber @buildingNumber
-			street     @street
-			city       @city
-			postcode   @postCode
-			state      @state
-			countryCode  @countryCode
-			phoneNumber   @phoneNo
-			email        @email
-	
-	Insert into reservation - 
-		reservationNumber new generated reservation number using ISNULL and SELECT MAX, 
-		guestId @guestId of the guest making the reservation,
-	
-	For each guest in the guest list
-		if guest exists 
-			get guestId
-		else
-			create a new guest and get guest id
-		insert guestId and reservationNumber into reservation table.
-*/
+    BEGIN TRY
+        BEGIN TRANSACTION
 
-	DECLARE @gName CHAR(255),
-			@gbuildingNo INT,
-			@gStreet CHAR(255), 
-			@gCity CHAR(255), 
-			@gPostcode CHAR(255), 
-			@gState CHAR(255), 
-			@gCountryCode CHAR(255),
-			@gEmail CHAR(255),
-			@gPhoneNo INT,
-			@guestId INT;
+        DECLARE @PrimaryGuest INT
+        DECLARE @PaymentInfoId INT
+        DECLARE @PackageStatus INT
+        DECLARE @ServiceStatus INT
 
-	SET @guestId = (SELECT guestId FROM GUEST WHERE phoneNumber = @phoneNo);
+        -- Check if primary guest exists, if not, insert a new guest
+        SELECT @PrimaryGuest = guestId 
+        FROM Guest 
+        WHERE email = @CustomerEmail
 
-	IF @guestId = NULL
-		SET @guestId = ISNULL((SELECT MAX(guestId)+1 FROM Guest),1)
-		INSERT INTO GUEST (guestId, name, buildingNumber, street, city, postcode, state, countryCode)
-		VALUES (
-				@guestId,
-				@name,
-				@buildingNumber,
-				@street,
-				@city,
-				@postcode,
-				@state,
-				@countryCode);
+        IF @PrimaryGuest IS NULL
+        BEGIN
+            RAISERROR ('No guest found for email %s', 16, 1, @CustomerEmail)
+            ROLLBACK TRANSACTION
+            RETURN
+        END
 
-	SET @reservationID = ISNULL((SELECT MAX(reservationNumber)+1 FROM Reservation),1)
-	INSERT INTO Reservation (reservationNumber, guestId)
-	VALUES (
-			@reservationID,
-			@guestId
-	);
-	
-	DECLARE guestCursor CURSOR
-	FOR
-	SELECT *
-	FROM @guestList;
+        SELECT TOP 1 @PaymentInfoId = paymentInfoId 
+        FROM PaymentInformation 
+        WHERE guestId = @PrimaryGuest
 
-	OPEN guestCursor;
-	FETCH NEXT FROM guestCursor INTO @gName, @gBuildingNo, @gStreet, @gCity, @gPostCode, @gState, @gCountryCode, @gEmail, @gPhoneNo
-	WHILE @@FETCH_STATUS = 0
-	BEGIN
-		SET @guestId = (SELECT guestId FROM GUEST WHERE phoneNumber = @gPhoneNo);
-		IF @guestId = NULL
-			SET @guestId = ISNULL((SELECT MAX(guestId)+1 FROM Guest),1)
-			INSERT INTO GUEST (guestId, name, buildingNumber, street, city, postcode, state, countryCode)
-			VALUES (
-					@guestId,
-					@name,
-					@buildingNumber,
-					@street,
-					@city,
-					@postcode,
-					@state,
-					@countryCode);	
-		INSERT INTO ReservationGuest (guestId, reservationNumber)
-		VALUES (
-			@guestId,
-			@reservationID
-		);
-		FETCH NEXT FROM guestCursor 
-		INTO @gName, @gBuildingNo, @gStreet, @gCity, @gPostCode, @gState, @gCountryCode, @gEmail, @gPhoneNo
-	END
+        IF @PaymentInfoId IS NULL
+        BEGIN
+            RAISERROR ('No payment information found for account under %s', 16, 1, @CustomerEmail)
+            ROLLBACK TRANSACTION
+            RETURN
+        END
 
-	--TO DO: discuss with team on how to implement capacity and finish booking.
+        -- Insert additional guests from @GuestList if they don't exist
+        INSERT INTO Guest (name, buildingNumber, street, city, postcode, state, countryCode, phoneNumber, email, gender, dob)
+        SELECT g.name, g.buildingNumber, g.street, g.city, g.postcode, g.state, g.countryCode, g.phoneNumber, g.email, g.gender, g.dob
+        FROM @GuestList g
+        WHERE NOT EXISTS (SELECT 1 FROM Guest WHERE email = g.email)
 
+        -- Create Reservation for the primary guest
+        INSERT INTO Reservation (guestId, discountAmount)
+        VALUES (@PrimaryGuest, 0.00)
+        SET @ReservationNumber = SCOPE_IDENTITY()
+
+        -- Link primary guest and additional guests to the reservation
+        INSERT INTO ReservationGuest (reservationNumber, guestId)
+        SELECT @ReservationNumber, guestId
+        FROM Guest
+        WHERE email = @CustomerEmail
+           OR email IN (SELECT email FROM @GuestList)
+
+        -- Process each package reservation from @PackageReservations
+        DECLARE @PackageName VARCHAR(100), @Quantity INT, @StartDate DATE, @EndDate DATE
+        DECLARE PackageCursor CURSOR FOR
+            SELECT packageName, quantity, startDate, endDate
+            FROM @PackageReservations
+        OPEN PackageCursor
+        FETCH NEXT FROM PackageCursor INTO @PackageName, @Quantity, @StartDate, @EndDate
+        SET @PackageStatus = @@FETCH_STATUS
+        WHILE @PackageStatus = 0
+        BEGIN
+            -- Find active advertisement for the package at the given hotel 
+            DECLARE @AdId INT
+
+            SELECT TOP 1 @AdId = a.advertisementId
+            FROM Advertisement a
+            INNER JOIN Package p ON a.packageId = p.packageId
+            INNER JOIN HotelAdvertisement ha ON a.advertisementId = ha.advertisementId
+            WHERE p.name = @PackageName
+              AND ha.hotelId = (SELECT hotelId FROM Hotel WHERE name = @HotelName)
+              AND (SELECT CAST(GETDATE() AS date)) BETWEEN a.startDate AND a.endDate
+
+            IF @AdId IS NULL
+            BEGIN
+                RAISERROR ('No active advertisement found for package %s at hotel %s', 16, 1, @PackageName, @HotelName)
+                ROLLBACK TRANSACTION
+                RETURN
+            END
+
+            -- Create booking for the package reservation
+            DECLARE @BookingId INT
+
+            INSERT INTO Booking (reservationNumber, advertisementId, quantity, startDate, endDate, isInitialBooking)
+            VALUES (@ReservationNumber, @AdId, @Quantity, @StartDate, @EndDate, 1)
+            SET @BookingId = SCOPE_IDENTITY()
+
+            -- Process each service in the package (via PackageItem)
+            DECLARE @ServiceId INT, @FacilityTypeId INT
+            DECLARE ServiceCursor CURSOR FOR
+                SELECT pi.serviceId
+                FROM PackageItem pi
+                INNER JOIN Package p ON pi.packageId = p.packageId
+                WHERE p.name = @PackageName
+            OPEN ServiceCursor
+            FETCH NEXT FROM ServiceCursor INTO @ServiceId
+            SET @ServiceStatus = @@FETCH_STATUS
+            WHILE @ServiceStatus = 0
+            BEGIN
+                -- Check if the service requires a facility
+                SET @FacilityTypeId = NULL
+                SELECT TOP 1 @FacilityTypeId = facilityTypeId
+                FROM ServiceFacility
+                WHERE serviceId = @ServiceId
+
+                IF @FacilityTypeId IS NOT NULL
+                BEGIN
+                    -- Check if the facility is available
+                    DECLARE @FacilityId INT
+
+                    SET @FacilityId = NULL
+                    SELECT TOP 1 @FacilityId = facilityId
+                    FROM Facility
+                    WHERE hotelId = (SELECT hotelId FROM Hotel WHERE name = @HotelName)
+                    AND facilityTypeId = @FacilityTypeId
+                    AND (
+                        SELECT COUNT(*)
+                        FROM FacilityBooking fb
+                        WHERE fb.facilityId = Facility.facilityId
+                            AND fb.startDateTime < @EndDate
+                            AND fb.endDateTime > @StartDate
+                        ) < Facility.capacity
+
+                    IF @FacilityId IS NULL
+                    BEGIN
+                        RAISERROR ('No availability, all facilities of type %s have reached capacity.', 16, 1, @FacilityTypeId)
+                        ROLLBACK TRANSACTION
+                        RETURN
+                    END
+
+                    DECLARE @FacilityBookingId INT
+                    -- Create facility booking
+                    INSERT INTO FacilityBooking (bookingId, facilityId, startDateTime, endDateTime)
+                    VALUES (@BookingId, @FacilityId, CAST(@StartDate AS DATETIME), CAST(@EndDate AS DATETIME) + '23:59:59')
+                    SET @FacilityBookingId = SCOPE_IDENTITY()
+                END
+                FETCH NEXT FROM ServiceCursor INTO @ServiceId
+                SET @ServiceStatus = @@FETCH_STATUS
+            END
+            CLOSE ServiceCursor
+            DEALLOCATE ServiceCursor
+
+            SELECT @PackageName = NULL, @Quantity = NULL, @StartDate = NULL, @EndDate = NULL
+            FETCH NEXT FROM PackageCursor INTO @PackageName, @Quantity, @StartDate, @EndDate
+            SET @PackageStatus = @@FETCH_STATUS
+        END
+        CLOSE PackageCursor
+        DEALLOCATE PackageCursor
+
+        -- Create Payment Invoice for deposit
+        INSERT INTO PaymentInvoice (amount, date, status, reservationNumber, paymentInfoId)
+        SELECT 
+            0.25 * SUM(a.advertisedPrice * b.quantity),
+            GETDATE(),
+            'Pending',
+            @ReservationNumber,
+            @PaymentInfoId
+        FROM Booking b
+        JOIN Advertisement a ON b.advertisementId = a.advertisementId
+        WHERE b.reservationNumber = @ReservationNumber
+
+        COMMIT TRANSACTION
+        RETURN
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
+        DECLARE @ErrorMessage NVARCHAR(4000), @ErrorSeverity INT, @ErrorState INT
+        SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE()
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
+    END CATCH
 END
-go
+GO
+
+
+
+
+    

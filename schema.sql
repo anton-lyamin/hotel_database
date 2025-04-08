@@ -1,3 +1,7 @@
+/*
+	* Database Schema
+*/
+
 DROP TABLE IF EXISTS ReservationGuest;
 DROP TABLE IF EXISTS FacilityBookee;
 DROP TABLE IF EXISTS FacilityBooking;
@@ -219,9 +223,9 @@ CREATE TABLE PaymentInvoice
 	amount 				DECIMAL(10,2),
 	date 				DATE NOT NULL,
 	status 				VARCHAR(25) NOT NULL,
-	reservationNumber 	INT NOT NULL,
+	reservationNumber 	INT NULL, -- can be nothing
 	paymentInfoId 		INT NOT NULL,
-	bookingId 			INT NOT NULL,
+	bookingId 			INT NULL, -- can be nothing
 	CONSTRAINT FK_PaymentInvoice_PaymentInfo FOREIGN KEY (paymentInfoId)
 		REFERENCES PaymentInformation(paymentInfoId)
 		ON DELETE NO ACTION,
