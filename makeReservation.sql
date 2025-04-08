@@ -35,6 +35,12 @@ DROP PROCEDURE IF EXISTS usp_makeReservation;
 DROP TYPE IF EXISTS PackageReservationType;
 DROP TYPE IF EXISTS GuestListType;
 
+IF CURSOR_STATUS('global', 'ServiceCursor') >= -1
+BEGIN
+    CLOSE ServiceCursor
+    DEALLOCATE ServiceCursor
+END;
+GO
 
 CREATE TYPE PackageReservationType AS TABLE (
     packageName VARCHAR(100),
@@ -202,7 +208,7 @@ BEGIN
 
                     IF @FacilityId IS NULL
                     BEGIN
-                        RAISERROR ('No availability, all facilities of type %s have reached capacity.', 16, 1, @FacilityTypeId)
+                        RAISERROR ('No availability, all facilities of type %u have reached capacity.', 16, 1, @FacilityTypeId)
                         ROLLBACK TRANSACTION
                         RETURN
                     END

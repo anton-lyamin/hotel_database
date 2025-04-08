@@ -659,8 +659,8 @@ DECLARE @HotelFacilityMapping TABLE (
 -- Facilities for Grand Ocean Hotel
 INSERT INTO @HotelFacilityMapping (FacilityName, Description, Status, Capacity, Hotel, FacilityType)
 VALUES
-    ('Room 103', 'Family room on floor 1', 'Available', 4, 'Grand Ocean Hotel', 'family room'),
-    ('Room 104', 'Suite on floor 1', 'Available', 2, 'Grand Ocean Hotel', 'suite'),
+    ('Room 103', 'Family room on floor 1', 'Available', 1, 'Grand Ocean Hotel', 'family room'),
+    ('Room 104', 'Suite on floor 1', 'Available', 1, 'Grand Ocean Hotel', 'suite'),
     ('Ocean Breeze Spa', 'Luxury spa facility', 'Available', 5, 'Grand Ocean Hotel', 'spa'),
     ('Salt and Sea', 'Hotel restaurant', 'Available', 50, 'Grand Ocean Hotel', 'restaurant'),
     ('Pacific Pool', 'Outdoor ocean view pool', 'Available', 30, 'Grand Ocean Hotel', 'pool'),
@@ -669,8 +669,8 @@ VALUES
 -- Facilities for Lakeside Haven
 INSERT INTO @HotelFacilityMapping (FacilityName, Description, Status, Capacity, Hotel, FacilityType)
 VALUES
-    ('Room 103', 'Family room on floor 1', 'Available', 4, 'Lakeside Haven', 'family room'),
-    ('Room 104', 'Suite on floor 1', 'Available', 2, 'Lakeside Haven', 'suite'),
+    ('Room 103', 'Family room on floor 1', 'Available', 1, 'Lakeside Haven', 'family room'),
+    ('Room 104', 'Suite on floor 1', 'Available', 1, 'Lakeside Haven', 'suite'),
     ('Still Waters Spa', 'Relaxing spa facility', 'Available', 5, 'Lakeside Haven', 'spa'),
     ('Waters'' Edge', 'Hotel restaurant', 'Available', 50, 'Lakeside Haven', 'restaurant'),
     ('Pinetree Pool', 'Refreshing outdoor pool', 'Available', 30, 'Lakeside Haven', 'pool'),
